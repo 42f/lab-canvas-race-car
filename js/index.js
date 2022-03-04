@@ -7,6 +7,7 @@ const context = canvas.getContext('2d');
 const speed = 10;
 const refreshRateMs = 1;
 let gameStartedState = false;
+const pointsPerObstacle = 42;
 
 // Obstacles settings
 
@@ -16,36 +17,6 @@ const obstacleSpeedOnY = 1;
 let obstaclePool = [];
 
 // Game Objects
-
-class Timer {
-  constructor() {
-    this.currentTime = 0;
-    this.startTime = 0;
-    this.intervalId = null;
-  }
-
-  start() {
-    this.startTime = Date.now();
-    this.intervalId = setInterval(() => {
-      this.currentTime = Date.now() - this.startTime;
-    }, 10);
-  }
-
-  getTimeInMs() {
-    return this.currentTime;
-  }
-
-  getTimeInSeconds() {
-    return Math.floor(this.currentTime / 1000);
-  }
-
-  stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-    }
-  }
-
-}
 
 class Background {
   constructor() {
@@ -66,12 +37,22 @@ class Player {
     this.heigth = this.img.height / 2;
     this.x = (canvas.width / 2) - (this.width / 2);
     this.y = canvas.height - this.heigth - 20;
+    this.score = 0;
   }
 
   draw() {
     context.drawImage(this.img, this.x, this.y, this.width, this.heigth);
   }
 
+  drawScore() {
+    context.font = '48px Courier New';
+    context.fillStyle = 'black'
+    context.fillText(`SCORE: ${this.score}`, 10, 50);
+  }
+
+  addPoints() {
+    this.score += pointsPerObstacle;
+  }
 
   getColisionCoordinates() {
     return {
@@ -93,8 +74,7 @@ class Player {
 
 class Obstacle {
   constructor() {
-    this.creationTimestamp = Date.now();
-    this.width = Math.floor(Math.random() * (canvas.width / 2));
+    this.width = player.width + Math.floor(Math.random() * (canvas.width / 2 - player.width));
     this.heigth = defaultObstacleHeigth;
     this.x = Math.floor(Math.random() * (canvas.width - this.width));
     this.y = 0;
@@ -124,7 +104,6 @@ class Obstacle {
 
 const bg = new Background();
 const player = new Player();
-const timer = new Timer();
 let gameIntervalId = null;
 let obstacleGeneratorIntervalId = null;
 
@@ -140,8 +119,6 @@ function hasPlayerColided() {
     colision = obY > plY && ((plXMax > obXMin && plXMax < obXMax) || (plXMin > obXMin && plXMin < obXMax));
 
     if (colision) {
-      console.log('player', plXMin, plXMax, plY);
-      console.log('ob', obXMin, obXMax, obY);
       break;
     }
   }
@@ -166,7 +143,6 @@ function startGame() {
       }
     })
 
-    timer.start();
     gameIntervalId = setInterval(() => {
       renderGame();
     }, refreshRateMs);
@@ -182,42 +158,60 @@ function stopGame() {
   clearInterval(obstacleGeneratorIntervalId);
 }
 
-function drawGameOver() {
+
+function drawBlackBox() {
   context.beginPath()
   context.rect(0, 100, canvas.width, 200)
   context.fillStyle = 'black'
   context.fill()
 }
 
-function newObstacleNeeded() {
-  /* Allow for new obstacle to be generated after a given time has passed
-  ** or shortly after the start of the game (but not directly after the start)
-  */
-  const len = obstaclePool.length;
-  return (!len && timer.getTimeInMs() > obstacleFrequencyMs / 2)
-    || (len && Date.now() - obstaclePool[len - 1].creationTimestamp >= obstacleFrequencyMs);
+function drawGameOverMessage() {
+  context.font = '48px Courier New';
+  context.fillStyle = 'red'
+  context.fillText(`Game over`, canvas.width / 4, 190);
+  context.fillText(`😵‍💫`, canvas.width / 2 - 24, 250);
 }
 
-function renderGame() {
-  if (gameStartedState && newObstacleNeeded()) {
-    obstaclePool.push(new Obstacle());
-  }
+function drawGameOver() {
+  drawBlackBox();
+  drawGameOverMessage();
+}
+
+function manageObstacles() {
   obstaclePool.forEach(obstacle => {
     obstacle.move();
   });
-
+  const len = obstaclePool.length;
   obstaclePool = obstaclePool.filter(obstacle => obstacle.y < canvas.height);
+  if (len != obstaclePool.length) {
+    player.addPoints();
+    console.log(player.score);
+  }
+}
 
+function drawInitialGame() {
+  bg.draw();
+  player.draw();
+}
+
+function drawAll() {
+  bg.draw();
+  player.draw();
+  player.drawScore();
+  obstaclePool.forEach(obstacle => {
+    obstacle.draw();
+  });
+}
+
+function renderGame() {
+  manageObstacles();
   if (hasPlayerColided()) {
     stopGame();
     drawGameOver();
   } else {
     clearCanvas();
-    bg.draw();
-    player.draw();
-    obstaclePool.forEach(obstacle => {
-      obstacle.draw();
-    });
+    drawAll();
   }
 }
 
@@ -225,6 +219,6 @@ window.onload = () => {
   document.getElementById('start-button').onclick = () => {
     startGame();
   };
-  renderGame();
+  drawInitialGame();
 }
 
