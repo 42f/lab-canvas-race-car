@@ -197,8 +197,8 @@ function drawInitialGame() {
 
 function drawAll() {
   bg.draw();
-  player.draw();
   player.drawScore();
+  player.draw();
   obstaclePool.forEach(obstacle => {
     obstacle.draw();
   });
